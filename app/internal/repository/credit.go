@@ -2,12 +2,19 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 
 	"api/internal/domain"
 	baseRepo "api/pkg/repository"
+)
+
+const (
+	creditsHash = "credits"
+	creditsList = "credits:list"
 )
 
 type CreditRepository struct {
@@ -27,26 +34,50 @@ func scanCredit(row pgx.Row) (domain.Credit, error) {
 	err := row.Scan(&credit.ID, &credit.ClientID, &credit.BankID,
 		&credit.MinPayment, &credit.MaxPayment, &credit.TermMonths,
 		&credit.CreditType, &credit.Status, &credit.CreatedAt)
+
 	return credit, err
 }
 
 func (r *CreditRepository) Create(ctx context.Context, credit *domain.Credit) error {
-	query := `INSERT INTO credits (id, client_id, bank_id, min_payment, max_payment,
+	query := `INSERT INTO credits (client_id, bank_id, min_payment, max_payment,
 							term_months, credit_type, status, created_at)
-			  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+			  VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`
 
-	_, err := r.DB().Exec(ctx, query, credit.ID, credit.ClientID, credit.BankID,
+	err := r.DB().QueryRow(ctx, query, credit.ClientID, credit.BankID,
 		credit.MinPayment, credit.MaxPayment, credit.TermMonths,
-		credit.CreditType, credit.Status, credit.CreatedAt)
+		credit.CreditType, credit.Status, credit.CreatedAt).Scan(&credit.ID)
+    if err != nil {
+        return r.HandleError(err)
+    }
+
+	// Cache
+    data, _ := json.Marshal(credit)
+    r.Redis().HSet(ctx, creditsHash, credit.ID, data)
+    r.Redis().ZAdd(ctx, creditsList, redis.Z{Score: float64(credit.CreatedAt.Unix()), Member: credit.ID})
 
 	return r.HandleError(err)
 }
 
 func (r *CreditRepository) GetByID(ctx context.Context, id string) (*domain.Credit, error) {
+	// Try cache
+    data, err := r.Redis().HGet(ctx, creditsHash, id).Bytes()
+    if err == nil {
+        var credit domain.Credit
+        if json.Unmarshal(data, &credit) == nil {
+            return &credit, nil
+        }
+    }
+
+	// DB
 	credit, err := r.crud.GetByID(ctx, id, scanCredit)
 
 	if err != nil {
 		return nil, err
+	}
+
+    // Cache
+	if data, err := json.Marshal(credit); err == nil {
+		r.Redis().HSet(ctx, creditsHash, id, data)
 	}
 
 	return &credit, nil
@@ -73,11 +104,23 @@ func (r *CreditRepository) Update(ctx context.Context, credit *domain.Credit) er
 		return domain.ErrNotFound
 	}
 
+    data, _ := json.Marshal(credit)
+	r.Redis().HSet(ctx, creditsHash, credit.ID, data)
+
 	return nil
 }
 
 func (r *CreditRepository) Delete(ctx context.Context, id string) error {
-	return r.crud.Delete(ctx, id)
+	err := r.crud.Delete(ctx, id)
+    if err != nil {
+        return err
+    }
+
+    // Cache
+    r.Redis().HDel(ctx, creditsHash, id)
+    r.Redis().ZRem(ctx, creditsList, id)
+
+    return nil
 }
 
 func (r *CreditRepository) ListByClient(ctx context.Context, clientID string, pagination baseRepo.PaginationParams) (baseRepo.PaginatedResult[domain.Credit], error) {

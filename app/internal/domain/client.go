@@ -3,7 +3,7 @@ package domain
 import "time"
 
 type Client struct {
-	ID        string    `json:"id"`
+	ID        int    `json:"id"`
 	FullName  string    `json:"full_name"`
 	Email     string    `json:"email"`
 	BirthDate string    `json:"birth_date"`

@@ -2,12 +2,19 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 
 	"api/internal/domain"
 	baseRepo "api/pkg/repository"
+)
+
+const (
+	clientsHash = "clients"
+	clientsList = "clients:list"
 )
 
 type ClientRepository struct {
@@ -32,20 +39,43 @@ func scanClient(row pgx.Row) (domain.Client, error) {
 }
 
 func (r *ClientRepository) Create(ctx context.Context, client *domain.Client) error {
-	query := `INSERT INTO clients (id, full_name, email, birth_date, country, created_at)
-			  VALUES ($1, $2, $3, $4, $5, $6)`
+	query := `INSERT INTO clients (full_name, email, birth_date, country, created_at)
+			  VALUES ($1, $2, $3, $4, $5) RETURNING id`
 
-	_, err := r.DB().Exec(ctx, query, client.ID, client.FullName, client.Email,
-		client.BirthDate, client.Country, client.CreatedAt)
+	err := r.DB().QueryRow(ctx, query, client.FullName, client.Email,
+		client.BirthDate, client.Country, client.CreatedAt).Scan(&client.ID)
+	if err != nil {
+        return r.HandleError(err)
+    }
 
-	return r.HandleError(err)
+	// Cache
+	data, _ := json.Marshal(client)
+	r.Redis().HSet(ctx, clientsHash, client.ID, data)
+	r.Redis().ZAdd(ctx, clientsList, redis.Z{Score: float64(client.CreatedAt.Unix()), Member: client.ID})
+
+	return nil
 }
 
 func (r *ClientRepository) GetByID(ctx context.Context, id string) (*domain.Client, error) {
+	// Try cache
+	data, err := r.Redis().HGet(ctx, clientsHash, id).Bytes()
+	if err == nil {
+		var client domain.Client
+		if json.Unmarshal(data, &client) == nil {
+			return &client, nil
+		}
+	}
+
+	// DB
 	client, err := r.crud.GetByID(ctx, id, scanClient)
 
 	if err != nil {
 		return nil, err
+	}
+
+	// Cache
+	if data, err := json.Marshal(client); err == nil {
+		r.Redis().HSet(ctx, clientsHash, id, data)
 	}
 
 	return &client, nil
@@ -70,10 +100,22 @@ func (r *ClientRepository) Update(ctx context.Context, client *domain.Client) er
 		return domain.ErrNotFound
 	}
 
+	// Cache
+	data, _ := json.Marshal(client)
+	r.Redis().HSet(ctx, clientsHash, client.ID, data)
+
 	return nil
 }
 
 func (r *ClientRepository) Delete(ctx context.Context, id string) error {
-	return r.crud.Delete(ctx, id)
-}
+	err := r.crud.Delete(ctx, id)
+	if err != nil {
+		return err
+    }
 
+	// Cache
+	r.Redis().HDel(ctx, clientsHash, id)
+	r.Redis().ZRem(ctx, clientsList, id)
+
+	return nil
+}

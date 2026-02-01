@@ -5,8 +5,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/google/uuid"
-
 	"api/internal/handlers"
 	"api/internal/contracts"
 	"api/internal/contracts/clients"
@@ -31,7 +29,6 @@ func CreateClient(w http.ResponseWriter, r *http.Request) (interface{}, error) {
 	}
 
 	client := &domain.Client{
-		ID:        uuid.NewString(),
 		FullName:  validated["full_name"].(string),
 		Email:     validated["email"].(string),
 		BirthDate: validated["birth_date"].(string),

@@ -5,8 +5,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/google/uuid"
-
 	"api/internal/handlers"
 	"api/internal/contracts"
 	"api/internal/contracts/banks"
@@ -34,7 +32,6 @@ func CreateBank(w http.ResponseWriter, r *http.Request) (interface{}, error) {
 	bankType := validated["type"].(string)
 
 	bank := &domain.Bank{
-		ID:        uuid.NewString(),
 		Name:      name,
 		Type:      bankType,
 		CreatedAt: time.Now().UTC(),

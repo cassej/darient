@@ -23,7 +23,8 @@ func GetBank(w http.ResponseWriter, r *http.Request) (interface{}, error) {
 	}
 
     err := contracts.ValidateField("id", id, contracts.FieldSpec{
-        Type: "uuid",
+        Type: "int",
+        Min:  1,
     })
 
     if err != nil {

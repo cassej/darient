@@ -5,8 +5,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/google/uuid"
-
 	"api/internal/handlers"
 	"api/internal/contracts"
 	"api/internal/contracts/credits"
@@ -31,9 +29,8 @@ func CreateCredit(w http.ResponseWriter, r *http.Request) (interface{}, error) {
 	}
 
 	credit := &domain.Credit{
-		ID:        uuid.NewString(),
-		ClientID:   validated["client_id"].(string),
-		BankID:     validated["bank_id"].(string),
+		ClientID:   validated["client_id"].(int),
+		BankID:     validated["bank_id"].(int),
 		MinPayment: validated["min_payment"].(float64),
 		MaxPayment: validated["max_payment"].(float64),
 		TermMonths: validated["term_months"].(int),

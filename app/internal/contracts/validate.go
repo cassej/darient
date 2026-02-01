@@ -21,6 +21,7 @@ var (
 	ErrInvalidDate     = errors.New("invalid date format")
 	ErrTooSmall        = errors.New("value too small")
 	ErrTooBig          = errors.New("value too big")
+	ErrInvalidUUID     = errors.New("invalid UUID format")
 )
 
 var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)

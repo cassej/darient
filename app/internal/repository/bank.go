@@ -2,12 +2,19 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 
 	"api/internal/domain"
 	baseRepo "api/pkg/repository"
+)
+
+const (
+	banksHash = "banks"
+	banksList = "banks:list"
 )
 
 type BankRepository struct {
@@ -30,18 +37,41 @@ func scanBank(row pgx.Row) (domain.Bank, error) {
 }
 
 func (r *BankRepository) Create(ctx context.Context, bank *domain.Bank) error {
-	query := `INSERT INTO banks (id, name, type, created_at) VALUES ($1, $2, $3, $4)`
+	query := `INSERT INTO banks (name, type, created_at) VALUES ($1, $2, $3) RETURNING id`
 
-	_, err := r.DB().Exec(ctx, query, bank.ID, bank.Name, bank.Type, bank.CreatedAt)
+	err := r.DB().QueryRow(ctx, query, bank.Name, bank.Type, bank.CreatedAt).Scan(&bank.ID)
+    if err != nil {
+        return r.HandleError(err)
+    }
 
-	return r.HandleError(err)
+	// Cache
+	data, _ := json.Marshal(bank)
+	r.Redis().HSet(ctx, banksHash, bank.ID, data)
+	r.Redis().ZAdd(ctx, banksList, redis.Z{Score: float64(bank.CreatedAt.Unix()), Member: bank.ID})
+
+	return nil
 }
 
 func (r *BankRepository) GetByID(ctx context.Context, id string) (*domain.Bank, error) {
+	// Try cache
+	data, err := r.Redis().HGet(ctx, banksHash, id).Bytes()
+	if err == nil {
+		var bank domain.Bank
+		if json.Unmarshal(data, &bank) == nil {
+			return &bank, nil
+		}
+	}
+
+	// DB
 	bank, err := r.crud.GetByID(ctx, id, scanBank)
 
 	if err != nil {
 		return nil, err
+	}
+
+	// Cache
+	if data, err := json.Marshal(bank); err == nil {
+		r.Redis().HSet(ctx, banksHash, id, data)
 	}
 
 	return &bank, nil
@@ -63,9 +93,22 @@ func (r *BankRepository) Update(ctx context.Context, bank *domain.Bank) error {
 		return domain.ErrNotFound
 	}
 
+	// Cache
+	data, _ := json.Marshal(bank)
+	r.Redis().HSet(ctx, banksHash, bank.ID, data)
+
 	return nil
 }
 
 func (r *BankRepository) Delete(ctx context.Context, id string) error {
-	return r.crud.Delete(ctx, id)
+	err := r.crud.Delete(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	// Cache
+	r.Redis().HDel(ctx, banksHash, id)
+	r.Redis().ZRem(ctx, banksList, id)
+
+	return nil
 }

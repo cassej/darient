@@ -5,10 +5,10 @@ import "api/internal/contracts"
 var Create = contracts.Contract{
 	Required: map[string]contracts.FieldSpec{
 		"client_id": {
-			Type: "uuid",
+			Type: "int",
 		},
 		"bank_id": {
-			Type: "uuid",
+			Type: "int",
 		},
 		"min_payment": {
 			Type:   "number",

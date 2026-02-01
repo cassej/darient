@@ -13,19 +13,48 @@ import (
 
 	"api/internal/config"
 	"api/internal/handlers"
-	loggerMw "api/internal/middleware"
-    "api/pkg"
+	_ "api/internal/handlers/banks"
+	//"api/internal/handlers/clients"
+	mw "api/internal/middleware"
+    "api/pkg/database"
 )
 
 func main() {
 	cfg := config.MustLoad()
 
-	log := logger.New(cfg.LogLevelString())
-	slog.SetDefault(log)
+	var level slog.Level
+    switch cfg.LogLevelString() {
+    case "debug":
+        level = slog.LevelDebug
+    case "warn":
+        level = slog.LevelWarn
+    case "error":
+        level = slog.LevelError
+    default:
+        level = slog.LevelInfo
+    }
+
+    log := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+        Level:     level,
+        AddSource: true,
+    }))
+
+    slog.SetDefault(log)
+
+    log.Info("logger initialized", "level", level.String())
 
 	ctx, cancel := signal.NotifyContext(context.Background(),
 		syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 	defer cancel()
+
+	db, err := database.Connect(ctx, cfg.GetDBDSN(), cfg.DBMaxConns, cfg.DBMinConns)
+
+	if err != nil {
+		log.Error("failed to connect to database", "err", err)
+		os.Exit(1)
+	}
+
+	defer db.Close()
 
 	r := chi.NewRouter()
 
@@ -33,7 +62,8 @@ func main() {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(cfg.ReadHeaderTimeout))
-	r.Use(loggerMw.Middleware(log))
+	r.Use(mw.DBMiddleware(db))
+	r.Use(mw.LoggerMiddleware(log))
 
 	r.Group(func(r chi.Router) {
         r.Use(func(next http.Handler) http.Handler {

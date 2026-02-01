@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
 	"strconv"
@@ -17,6 +18,15 @@ type Config struct {
 	IdleTimeout       time.Duration
 	ReadHeaderTimeout time.Duration
 	ShutdownGrace     time.Duration
+
+	DBHost     string
+	DBPort     string
+	DBUser     string
+	DBPassword string
+	DBName     string
+	DBSSLMode  string
+	DBMaxConns int32
+	DBMinConns int32
 }
 
 func (c Config) LogLevelString() string {
@@ -32,6 +42,17 @@ func (c Config) LogLevelString() string {
 	default:
 		return "info"
 	}
+}
+
+func (c *Config) GetDBDSN() string {
+    return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s",
+        c.DBUser,
+        c.DBPassword,
+        c.DBHost,
+        c.DBPort,
+        c.DBName,
+        c.DBSSLMode,
+    )
 }
 
 func MustLoad() Config {
@@ -59,6 +80,15 @@ func MustLoad() Config {
 	cfg.ReadHeaderTimeout = durationEnvOr("READ_HEADER_TIMEOUT_SEC", 5*time.Second)
 	cfg.ShutdownGrace = durationEnvOr("SHUTDOWN_GRACE_SEC", 15*time.Second)
 
+	cfg.DBHost = envOr("DB_HOST", "odyssey")
+	cfg.DBPort = envOr("DB_PORT", "6432")
+	cfg.DBUser = envOr("DB_USER", "postgres")
+	cfg.DBPassword = envOr("DB_PASSWORD", "postgres")
+	cfg.DBName = envOr("DB_NAME", "credits")
+	cfg.DBSSLMode = envOr("DB_SSLMODE", "disable")
+	cfg.DBMaxConns = int32(intEnvOr("DB_MAX_CONNS", 25))
+	cfg.DBMinConns = int32(intEnvOr("DB_MIN_CONNS", 5))
+
 	return cfg
 }
 
@@ -67,6 +97,18 @@ func envOr(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+func intEnvOr(key string, fallback int) int {
+	s := envOr(key, "")
+	if s == "" {
+		return fallback
+	}
+	val, err := strconv.Atoi(s)
+	if err != nil {
+		return fallback
+	}
+	return val
 }
 
 func durationEnvOr(key string, fallback time.Duration) time.Duration {

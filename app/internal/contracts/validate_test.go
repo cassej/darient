@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"strings"
 )
 
 func TestValidate(t *testing.T) {

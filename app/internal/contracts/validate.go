@@ -136,7 +136,7 @@ func ValidateField(field string, value any, spec FieldSpec) error {
             s = strings.TrimSpace(s)
 
             if !uuidRegex.MatchString(s) {
-                return fmt.Errorf("%w: %s", ErrInvalidEmail, s)
+                return fmt.Errorf("%w: %s", ErrInvalidUUID, s)
             }
 
             return nil
@@ -158,25 +158,28 @@ func ValidateField(field string, value any, spec FieldSpec) error {
             return nil
 
         case "int":
-            var n int
-
+            var n int64
             switch v := value.(type) {
                 case float64:
-                    n = int(v)
+                    if v != float64(int64(v)) {  // ← добавь эту проверку
+                        return fmt.Errorf("%w: expected integer, got float with fraction %v", ErrInvalidType, v)
+                    }
+                    n = int64(v)
 
-                case int:
+                case int64:
                     n = v
-
+                case int:
+                    n = int64(v)
                 default:
-                    return fmt.Errorf("%w: expected number for int, got %T", ErrInvalidType, value)
+                    return fmt.Errorf("%w: expected integer, got %T", ErrInvalidType, value)
             }
 
-            if spec.Min > 0 && n < spec.Min {
-			    return fmt.Errorf("%w: min value %d, got %d", ErrTooSmall, spec.Min, n)
+            if spec.Min > 0 && n < int64(spec.Min) {
+                return fmt.Errorf("%w: min %d, got %d", ErrTooSmall, spec.Min, n)
             }
 
-            if spec.Max > 0 && n > spec.Max {
-			    return fmt.Errorf("%w: max value %d, got %d", ErrTooBig, spec.Max, n)
+            if spec.Max > 0 && n > int64(spec.Max) {
+                return fmt.Errorf("%w: max %d, got %d", ErrTooBig, spec.Max, n)
             }
 
             return nil

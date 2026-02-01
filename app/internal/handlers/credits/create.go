@@ -1,4 +1,4 @@
-package banks
+package credits
 
 import (
 	"encoding/json"
@@ -9,34 +9,36 @@ import (
 
 	"api/internal/handlers"
 	"api/internal/contracts"
-	"api/internal/contracts/banks"
+	"api/internal/contracts/credits"
 	"api/internal/domain"
 	"api/internal/middleware"
 	"api/internal/repository"
 )
 
 func init() {
-	handlers.Register("POST", "/banks", CreateBank)
+	handlers.Register("POST", "/credits", CreateCredit)
 }
 
-func CreateBank(w http.ResponseWriter, r *http.Request) (interface{}, error) {
+func CreateCredit(w http.ResponseWriter, r *http.Request) (interface{}, error) {
 	var input map[string]any
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		return nil, handlers.NewHTTPError(http.StatusBadRequest, "invalid json format")
 	}
 
-	validated, err := contracts.Validate(input, banks.Create)
+	validated, err := contracts.Validate(input, credits.Create)
 	if err != nil {
 		return nil, err
 	}
 
-	name := validated["name"].(string)
-	bankType := validated["type"].(string)
-
-	bank := &domain.Bank{
+	credit := &domain.Credit{
 		ID:        uuid.NewString(),
-		Name:      name,
-		Type:      bankType,
+		ClientID:   validated["client_id"].(string),
+		BankID:     validated["bank_id"].(string),
+		MinPayment: validated["min_payment"].(float64),
+		MaxPayment: validated["max_payment"].(float64),
+		TermMonths: validated["term_months"].(int),
+		CreditType: validated["credit_type"].(string),
+		Status:     "PENDING",
 		CreatedAt: time.Now().UTC(),
 	}
 
@@ -45,15 +47,12 @@ func CreateBank(w http.ResponseWriter, r *http.Request) (interface{}, error) {
 		return nil, handlers.NewHTTPError(http.StatusInternalServerError, "database unavailable")
 	}
 
-	repo := repository.NewBankRepository(pool)
+	repo := repository.NewCreditRepository(pool)
 
-	if err := repo.Create(r.Context(), bank); err != nil {
-		if err == domain.ErrAlreadyExists {
-			return nil, handlers.NewHTTPError(http.StatusConflict, "bank with this name already exists")
-		}
+	if err := repo.Create(r.Context(), credit); err != nil {
 		return nil, handlers.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	return bank, nil
+	return credit, nil
 }

@@ -1,4 +1,4 @@
-package banks
+package credits
 
 import (
 	"net/http"
@@ -11,10 +11,10 @@ import (
 )
 
 func init() {
-	handlers.Register("GET", "/banks", ListBanks)
+	handlers.Register("GET", "/credits", ListCredits)
 }
 
-func ListBanks(w http.ResponseWriter, r *http.Request) (interface{}, error) {
+func ListCredits(w http.ResponseWriter, r *http.Request) (interface{}, error) {
 	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
 	pageSize, _ := strconv.Atoi(r.URL.Query().Get("page_size"))
 
@@ -25,7 +25,7 @@ func ListBanks(w http.ResponseWriter, r *http.Request) (interface{}, error) {
 		return nil, handlers.NewHTTPError(http.StatusInternalServerError, "database unavailable")
 	}
 
-	repo := repository.NewBankRepository(pool)
+	repo := repository.NewCreditRepository(pool)
 
 	result, err := repo.List(r.Context(), pagination)
 	if err != nil {

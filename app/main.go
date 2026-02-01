@@ -14,7 +14,8 @@ import (
 	"api/internal/config"
 	"api/internal/handlers"
 	_ "api/internal/handlers/banks"
-	//"api/internal/handlers/clients"
+	_ "api/internal/handlers/clients"
+	_ "api/internal/handlers/credits"
 	mw "api/internal/middleware"
     "api/pkg/database"
 )
@@ -46,6 +47,14 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(),
 		syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 	defer cancel()
+
+	if err := database.ConnectRedis(ctx, cfg.GetRedisAddr()); err != nil {
+		log.Error("failed to connect to redis", "err", err)
+		os.Exit(1)
+	}
+	defer database.CloseRedis()
+
+	go database.StartRedisHealthCheck(ctx, cfg.RedisHealthCheckInterval)
 
 	db, err := database.Connect(ctx, cfg.GetDBDSN(), cfg.DBMaxConns, cfg.DBMinConns)
 

@@ -27,6 +27,12 @@ type Config struct {
 	DBSSLMode  string
 	DBMaxConns int32
 	DBMinConns int32
+
+	RedisHost                string
+	RedisPort                string
+	RedisPassword            string
+	RedisDB                  int
+	RedisHealthCheckInterval time.Duration
 }
 
 func (c Config) LogLevelString() string {
@@ -53,6 +59,10 @@ func (c *Config) GetDBDSN() string {
         c.DBName,
         c.DBSSLMode,
     )
+}
+
+func (c *Config) GetRedisAddr() string {
+	return c.RedisHost + ":" + c.RedisPort
 }
 
 func MustLoad() Config {
@@ -88,6 +98,12 @@ func MustLoad() Config {
 	cfg.DBSSLMode = envOr("DB_SSLMODE", "disable")
 	cfg.DBMaxConns = int32(intEnvOr("DB_MAX_CONNS", 25))
 	cfg.DBMinConns = int32(intEnvOr("DB_MIN_CONNS", 5))
+
+	cfg.RedisHost = envOr("REDIS_HOST", "redis")
+	cfg.RedisPort = envOr("REDIS_PORT", "6379")
+	cfg.RedisPassword = envOr("REDIS_PASSWORD", "")
+	cfg.RedisDB = intEnvOr("REDIS_DB", 0)
+	cfg.RedisHealthCheckInterval = durationEnvOr("REDIS_HEALTH_CHECK_SEC", 30*time.Second)
 
 	return cfg
 }

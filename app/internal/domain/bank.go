@@ -1,12 +1,6 @@
 package domain
 
 import "time"
-import "errors"
-
-var (
-	ErrInvalidInput = errors.New("invalid input parameters")
-	ErrNotFound     = errors.New("resource not found")
-)
 
 type Bank struct {
 	ID        string    `json:"id"`

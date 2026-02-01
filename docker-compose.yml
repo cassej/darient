@@ -1,0 +1,161 @@
+version: '3.8'
+
+services:
+  postgres-primary:
+    image: postgres:16-alpine
+    container_name: postgres-primary
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-credits}
+      POSTGRES_REPLICATION_USER: ${DB_REPLICATION_USER:-replicator}
+      POSTGRES_REPLICATION_PASSWORD: ${DB_REPLICATION_PASSWORD:-replicator_pass}
+    command: |
+      postgres
+      -c wal_level=replica
+      -c max_wal_senders=3
+      -c max_replication_slots=3
+      -c hot_standby=on
+      -c hot_standby_feedback=on
+      -c listen_addresses='*'
+    volumes:
+      - postgres_primary_data:/var/lib/postgresql/data
+      - ./scripts/primary-init.sh:/docker-entrypoint-initdb.d/01-primary-init.sh:ro
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  postgres-replica:
+    image: postgres:16-alpine
+    container_name: postgres-replica
+    environment:
+      PGUSER: ${DB_USER:-postgres}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-credits}
+      POSTGRES_PRIMARY_HOST: postgres-primary
+      POSTGRES_REPLICATION_USER: ${DB_REPLICATION_USER:-replicator}
+      POSTGRES_REPLICATION_PASSWORD: ${DB_REPLICATION_PASSWORD:-replicator_pass}
+    command: |
+      bash -c "
+      if [ ! -f /var/lib/postgresql/data/PG_VERSION ]; then
+        echo 'Waiting for primary to be ready...'
+        until pg_isready -h postgres-primary -U postgres; do
+          sleep 2
+        done
+        echo 'Primary is ready. Taking base backup...'
+        rm -rf /var/lib/postgresql/data/*
+        PGPASSWORD='${DB_REPLICATION_PASSWORD:-replicator_pass}' pg_basebackup \
+          -h postgres-primary \
+          -D /var/lib/postgresql/data \
+          -U ${DB_REPLICATION_USER:-replicator} \
+          -v -P -W -R -X stream
+        echo 'Base backup complete!'
+      fi
+      chown -R postgres:postgres /var/lib/postgresql/data
+      chmod 700 /var/lib/postgresql/data
+      exec gosu postgres postgres -c hot_standby=on
+      "
+    volumes:
+      - postgres_replica_data:/var/lib/postgresql/data
+    depends_on:
+      postgres-primary:
+        condition: service_healthy
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  odyssey:
+    build:
+      context: .
+      dockerfile: Dockerfile.odyssey
+    container_name: odyssey
+    ports:
+      - "${DB_PORT:-6432}:6432"
+      - "${DB_PORT_REPLICA:-6433}:6433"
+    volumes:
+      - ./odyssey.conf:/etc/odyssey/odyssey.conf:ro
+    depends_on:
+      postgres-primary:
+        condition: service_healthy
+      postgres-replica:
+        condition: service_healthy
+    networks:
+      - backend
+    healthcheck:
+      test: [ "CMD", "nc", "-z", "localhost", "6432" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  migrate:
+    image: migrate/migrate
+    volumes:
+      - ./migrations:/migrations
+    networks:
+      - backend
+    command: -path=/migrations/ -database "postgres://${DB_USER}:${DB_PASSWORD}@odyssey:6432/${DB_NAME}?sslmode=disable" up
+    depends_on:
+      odyssey:
+        condition: service_healthy
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: api
+    ports:
+      - "${PORT:-8080}:8080"
+    env_file:
+      - .env
+    volumes:
+      - ./app:/app
+    restart: unless-stopped
+    depends_on:
+      odyssey:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  postgres_primary_data:
+  postgres_replica_data:
+  redis_data:

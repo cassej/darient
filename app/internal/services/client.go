@@ -4,8 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/google/uuid"
-
 	"api/internal/domain"
 	"api/internal/middleware"
 	"api/internal/repository"
@@ -18,7 +16,6 @@ type clientService struct{}
 
 func (clientService) Create(ctx context.Context, fullName, email, birthDate, country string) (*domain.Client, error) {
 	client := &domain.Client{
-		ID:        uuid.NewString(),
 		FullName:  fullName,
 		Email:     email,
 		BirthDate: birthDate,
@@ -30,12 +27,12 @@ func (clientService) Create(ctx context.Context, fullName, email, birthDate, cou
 	return client, repo.Create(ctx, client)
 }
 
-func (clientService) Get(ctx context.Context, id string) (*domain.Client, error) {
+func (clientService) Get(ctx context.Context, id int) (*domain.Client, error) {
 	repo := repository.NewClientRepository(middleware.GetDB(ctx))
 	return repo.GetByID(ctx, id)
 }
 
-func (clientService) Update(ctx context.Context, id string, fullName, email, birthDate, country *string) (*domain.Client, error) {
+func (clientService) Update(ctx context.Context, id int, fullName, email, birthDate, country *string) (*domain.Client, error) {
 	repo := repository.NewClientRepository(middleware.GetDB(ctx))
 
 	client, err := repo.GetByID(ctx, id)
@@ -59,7 +56,7 @@ func (clientService) Update(ctx context.Context, id string, fullName, email, bir
 	return client, repo.Update(ctx, client)
 }
 
-func (clientService) Delete(ctx context.Context, id string) error {
+func (clientService) Delete(ctx context.Context, id int) error {
 	repo := repository.NewClientRepository(middleware.GetDB(ctx))
 	return repo.Delete(ctx, id)
 }

@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"encoding/json"
+	"strconv"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -50,15 +51,15 @@ func (r *ClientRepository) Create(ctx context.Context, client *domain.Client) er
 
 	// Cache
 	data, _ := json.Marshal(client)
-	r.Redis().HSet(ctx, clientsHash, client.ID, data)
-	r.Redis().ZAdd(ctx, clientsList, redis.Z{Score: float64(client.CreatedAt.Unix()), Member: client.ID})
+	r.Redis().HSet(ctx, clientsHash, strconv.Itoa(client.ID), data)
+	r.Redis().ZAdd(ctx, clientsList, redis.Z{Score: float64(client.CreatedAt.Unix()), Member: strconv.Itoa(client.ID)})
 
 	return nil
 }
 
-func (r *ClientRepository) GetByID(ctx context.Context, id string) (*domain.Client, error) {
+func (r *ClientRepository) GetByID(ctx context.Context, id int) (*domain.Client, error) {
 	// Try cache
-	data, err := r.Redis().HGet(ctx, clientsHash, id).Bytes()
+	data, err := r.Redis().HGet(ctx, clientsHash, strconv.Itoa(id)).Bytes()
 	if err == nil {
 		var client domain.Client
 		if json.Unmarshal(data, &client) == nil {
@@ -75,7 +76,7 @@ func (r *ClientRepository) GetByID(ctx context.Context, id string) (*domain.Clie
 
 	// Cache
 	if data, err := json.Marshal(client); err == nil {
-		r.Redis().HSet(ctx, clientsHash, id, data)
+		r.Redis().HSet(ctx, clientsHash, strconv.Itoa(id), data)
 	}
 
 	return &client, nil
@@ -102,20 +103,20 @@ func (r *ClientRepository) Update(ctx context.Context, client *domain.Client) er
 
 	// Cache
 	data, _ := json.Marshal(client)
-	r.Redis().HSet(ctx, clientsHash, client.ID, data)
+	r.Redis().HSet(ctx, clientsHash, strconv.Itoa(client.ID), data)
 
 	return nil
 }
 
-func (r *ClientRepository) Delete(ctx context.Context, id string) error {
+func (r *ClientRepository) Delete(ctx context.Context, id int) error {
 	err := r.crud.Delete(ctx, id)
 	if err != nil {
 		return err
     }
 
 	// Cache
-	r.Redis().HDel(ctx, clientsHash, id)
-	r.Redis().ZRem(ctx, clientsList, id)
+	r.Redis().HDel(ctx, clientsHash, strconv.Itoa(id))
+	r.Redis().ZRem(ctx, clientsList, strconv.Itoa(id))
 
 	return nil
 }

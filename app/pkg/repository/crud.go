@@ -23,7 +23,7 @@ func NewCRUD[T any](db *pgxpool.Pool, tableName string) *CRUD[T] {
 }
 
 // GetByID retrieves a single record by ID
-func (c *CRUD[T]) GetByID(ctx context.Context, id string, scanFn ScanFunc[T]) (T, error) {
+func (c *CRUD[T]) GetByID(ctx context.Context, id int, scanFn ScanFunc[T]) (T, error) {
 	var zero T
 	query := fmt.Sprintf("SELECT * FROM %s WHERE id = $1", c.tableName)
 	
@@ -38,7 +38,7 @@ func (c *CRUD[T]) GetByID(ctx context.Context, id string, scanFn ScanFunc[T]) (T
 }
 
 // Delete removes a record by ID
-func (c *CRUD[T]) Delete(ctx context.Context, id string) error {
+func (c *CRUD[T]) Delete(ctx context.Context, id int) error {
 	query := fmt.Sprintf("DELETE FROM %s WHERE id = $1", c.tableName)
 	result, err := c.db.Exec(ctx, query, id)
 	
@@ -116,7 +116,7 @@ func (c *CRUD[T]) List(ctx context.Context, pagination PaginationParams, scanFn 
 }
 
 // Exists checks if a record with given ID exists
-func (c *CRUD[T]) Exists(ctx context.Context, id string) (bool, error) {
+func (c *CRUD[T]) Exists(ctx context.Context, id int) (bool, error) {
 	query := fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM %s WHERE id = $1)", c.tableName)
 	
 	var exists bool

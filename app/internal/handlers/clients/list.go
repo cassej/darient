@@ -1,6 +1,8 @@
 package clients
 
 import (
+    "context"
+
 	"api/internal/handlers"
 	"api/internal/contracts/clients"
 	"api/internal/services"

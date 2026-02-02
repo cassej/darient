@@ -1,6 +1,8 @@
 package credits
 
 import (
+    "context"
+
 	"api/internal/handlers"
 	"api/internal/contracts/credits"
 	"api/internal/services"
@@ -11,7 +13,7 @@ func init() {
 }
 
 func update(ctx context.Context, data map[string]any) (interface{}, error) {
-	id := data["id"].(string)
+	id := data["id"].(int)
 
 	var minPayment, maxPayment *float64
 	var termMonths *int
@@ -33,5 +35,5 @@ func update(ctx context.Context, data map[string]any) (interface{}, error) {
 		status = &v
 	}
 
-	return service.CreditService.Update(ctx, id, minPayment, maxPayment, termMonths, creditType, status)
+	return services.CreditService.Update(ctx, id, minPayment, maxPayment, termMonths, creditType, status)
 }

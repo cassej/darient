@@ -1,6 +1,8 @@
 package credits
 
 import (
+    "context"
+
 	"api/internal/handlers"
 	"api/internal/contracts/credits"
 	"api/internal/services"
@@ -21,5 +23,5 @@ func list(ctx context.Context, data map[string]any) (interface{}, error) {
 		pageSize = 20
 	}
 
-	return service.CreditService.List(ctx, page, pageSize)
+	return services.CreditService.List(ctx, page, pageSize)
 }

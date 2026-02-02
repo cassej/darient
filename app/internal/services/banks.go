@@ -7,6 +7,7 @@ import (
 	"api/internal/domain"
 	"api/internal/middleware"
 	"api/internal/repository"
+	baseRepo "api/pkg/repository"
 )
 
 var BankService = bankService{}
@@ -30,13 +31,13 @@ func (bankService) Create(ctx context.Context, name, bankType string) (*domain.B
 	return bank, nil
 }
 
-func (bankService) Get(ctx context.Context, id string) (*domain.Bank, error) {
+func (bankService) Get(ctx context.Context, id int) (*domain.Bank, error) {
 	pool := middleware.GetDB(ctx)
 	repo := repository.NewBankRepository(pool)
 	return repo.GetByID(ctx, id)
 }
 
-func (bankService) Update(ctx context.Context, id string, name, bankType *string) (*domain.Bank, error) {
+func (bankService) Update(ctx context.Context, id int, name, bankType *string) (*domain.Bank, error) {
 	pool := middleware.GetDB(ctx)
 	repo := repository.NewBankRepository(pool)
 
@@ -59,7 +60,7 @@ func (bankService) Update(ctx context.Context, id string, name, bankType *string
 	return bank, nil
 }
 
-func (bankService) Delete(ctx context.Context, id string) error {
+func (bankService) Delete(ctx context.Context, id int) error {
 	pool := middleware.GetDB(ctx)
 	repo := repository.NewBankRepository(pool)
 	return repo.Delete(ctx, id)
@@ -69,6 +70,6 @@ func (bankService) List(ctx context.Context, page, pageSize int) (interface{}, e
 	pool := middleware.GetDB(ctx)
 	repo := repository.NewBankRepository(pool)
 
-	pagination := repository.NewPaginationParams(page, pageSize)
+	pagination := baseRepo.NewPaginationParams(page, pageSize)
 	return repo.List(ctx, pagination)
 }

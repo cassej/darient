@@ -1,6 +1,8 @@
 package clients
 
 import (
+    "context"
+
 	"api/internal/handlers"
 	"api/internal/contracts/clients"
 	"api/internal/services"
@@ -11,7 +13,7 @@ func init() {
 }
 
 func update(ctx context.Context, data map[string]any) (interface{}, error) {
-    id := data["id"].(string)
+    id := data["id"].(int)
 
     var fullName, email, birthDate, country *string
 
@@ -28,5 +30,5 @@ func update(ctx context.Context, data map[string]any) (interface{}, error) {
         country = &v
     }
 
-    return service.ClientService.Update(ctx, id, fullName, email, birthDate, country)
+    return services.ClientService.Update(ctx, id, fullName, email, birthDate, country)
 }

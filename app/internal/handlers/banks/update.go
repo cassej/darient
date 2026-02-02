@@ -1,6 +1,8 @@
 package banks
 
 import (
+    "context"
+
 	"api/internal/handlers"
 	"api/internal/contracts/banks"
 	"api/internal/services"
@@ -11,9 +13,9 @@ func init() {
 }
 
 func update(ctx context.Context, data map[string]any) (interface{}, error) {
-    id := data["id"].(string)
+    id := data["id"].(int)
 
-    var fullName, email, birthDate, country *string
+    var name, bank_type *string
 
     if v, ok := data["name"].(string); ok {
         name = &v
@@ -22,5 +24,5 @@ func update(ctx context.Context, data map[string]any) (interface{}, error) {
         bank_type = &v
     }
 
-    return service.BankService.Update(ctx, id, name, bank_type)
+    return services.BankService.Update(ctx, id, name, bank_type)
 }

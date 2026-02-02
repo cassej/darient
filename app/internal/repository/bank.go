@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"encoding/json"
+	"strconv"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -46,15 +47,15 @@ func (r *BankRepository) Create(ctx context.Context, bank *domain.Bank) error {
 
 	// Cache
 	data, _ := json.Marshal(bank)
-	r.Redis().HSet(ctx, banksHash, bank.ID, data)
-	r.Redis().ZAdd(ctx, banksList, redis.Z{Score: float64(bank.CreatedAt.Unix()), Member: bank.ID})
+	r.Redis().HSet(ctx, banksHash, strconv.Itoa(bank.ID), data)
+	r.Redis().ZAdd(ctx, banksList, redis.Z{Score: float64(bank.CreatedAt.Unix()), Member: strconv.Itoa(bank.ID)})
 
 	return nil
 }
 
-func (r *BankRepository) GetByID(ctx context.Context, id string) (*domain.Bank, error) {
+func (r *BankRepository) GetByID(ctx context.Context, id int) (*domain.Bank, error) {
 	// Try cache
-	data, err := r.Redis().HGet(ctx, banksHash, id).Bytes()
+	data, err := r.Redis().HGet(ctx, banksHash, strconv.Itoa(id)).Bytes()
 	if err == nil {
 		var bank domain.Bank
 		if json.Unmarshal(data, &bank) == nil {
@@ -71,7 +72,7 @@ func (r *BankRepository) GetByID(ctx context.Context, id string) (*domain.Bank, 
 
 	// Cache
 	if data, err := json.Marshal(bank); err == nil {
-		r.Redis().HSet(ctx, banksHash, id, data)
+		r.Redis().HSet(ctx, banksHash, strconv.Itoa(id), data)
 	}
 
 	return &bank, nil
@@ -95,20 +96,20 @@ func (r *BankRepository) Update(ctx context.Context, bank *domain.Bank) error {
 
 	// Cache
 	data, _ := json.Marshal(bank)
-	r.Redis().HSet(ctx, banksHash, bank.ID, data)
+	r.Redis().HSet(ctx, banksHash, strconv.Itoa(bank.ID), data)
 
 	return nil
 }
 
-func (r *BankRepository) Delete(ctx context.Context, id string) error {
+func (r *BankRepository) Delete(ctx context.Context, id int) error {
 	err := r.crud.Delete(ctx, id)
 	if err != nil {
 		return err
 	}
 
 	// Cache
-	r.Redis().HDel(ctx, banksHash, id)
-	r.Redis().ZRem(ctx, banksList, id)
+	r.Redis().HDel(ctx, banksHash, strconv.Itoa(id))
+	r.Redis().ZRem(ctx, banksList, strconv.Itoa(id))
 
 	return nil
 }

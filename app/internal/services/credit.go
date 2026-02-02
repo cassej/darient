@@ -4,8 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/google/uuid"
-
 	"api/internal/domain"
 	"api/internal/middleware"
 	"api/internal/repository"
@@ -16,9 +14,8 @@ var CreditService = creditService{}
 
 type creditService struct{}
 
-func (creditService) Create(ctx context.Context, clientID, bankID string, minPayment, maxPayment float64, termMonths int, creditType string) (*domain.Credit, error) {
+func (creditService) Create(ctx context.Context, clientID, bankID int, minPayment, maxPayment float64, termMonths int, creditType string) (*domain.Credit, error) {
 	credit := &domain.Credit{
-		ID:         uuid.NewString(),
 		ClientID:   clientID,
 		BankID:     bankID,
 		MinPayment: minPayment,
@@ -33,12 +30,12 @@ func (creditService) Create(ctx context.Context, clientID, bankID string, minPay
 	return credit, repo.Create(ctx, credit)
 }
 
-func (creditService) Get(ctx context.Context, id string) (*domain.Credit, error) {
+func (creditService) Get(ctx context.Context, id int) (*domain.Credit, error) {
 	repo := repository.NewCreditRepository(middleware.GetDB(ctx))
 	return repo.GetByID(ctx, id)
 }
 
-func (creditService) Update(ctx context.Context, id string, minPayment, maxPayment *float64, termMonths *int, creditType, status *string) (*domain.Credit, error) {
+func (creditService) Update(ctx context.Context, id int, minPayment, maxPayment *float64, termMonths *int, creditType, status *string) (*domain.Credit, error) {
 	repo := repository.NewCreditRepository(middleware.GetDB(ctx))
 
 	credit, err := repo.GetByID(ctx, id)
@@ -65,7 +62,7 @@ func (creditService) Update(ctx context.Context, id string, minPayment, maxPayme
 	return credit, repo.Update(ctx, credit)
 }
 
-func (creditService) Delete(ctx context.Context, id string) error {
+func (creditService) Delete(ctx context.Context, id int) error {
 	repo := repository.NewCreditRepository(middleware.GetDB(ctx))
 	return repo.Delete(ctx, id)
 }

@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"encoding/json"
+	"strconv"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -52,15 +53,15 @@ func (r *CreditRepository) Create(ctx context.Context, credit *domain.Credit) er
 
 	// Cache
     data, _ := json.Marshal(credit)
-    r.Redis().HSet(ctx, creditsHash, credit.ID, data)
-    r.Redis().ZAdd(ctx, creditsList, redis.Z{Score: float64(credit.CreatedAt.Unix()), Member: credit.ID})
+    r.Redis().HSet(ctx, creditsHash, strconv.Itoa(credit.ID), data)
+    r.Redis().ZAdd(ctx, creditsList, redis.Z{Score: float64(credit.CreatedAt.Unix()), Member: strconv.Itoa(credit.ID)})
 
 	return r.HandleError(err)
 }
 
-func (r *CreditRepository) GetByID(ctx context.Context, id string) (*domain.Credit, error) {
+func (r *CreditRepository) GetByID(ctx context.Context, id int) (*domain.Credit, error) {
 	// Try cache
-    data, err := r.Redis().HGet(ctx, creditsHash, id).Bytes()
+    data, err := r.Redis().HGet(ctx, creditsHash, strconv.Itoa(id)).Bytes()
     if err == nil {
         var credit domain.Credit
         if json.Unmarshal(data, &credit) == nil {
@@ -77,7 +78,7 @@ func (r *CreditRepository) GetByID(ctx context.Context, id string) (*domain.Cred
 
     // Cache
 	if data, err := json.Marshal(credit); err == nil {
-		r.Redis().HSet(ctx, creditsHash, id, data)
+		r.Redis().HSet(ctx, creditsHash, strconv.Itoa(id), data)
 	}
 
 	return &credit, nil
@@ -110,20 +111,20 @@ func (r *CreditRepository) Update(ctx context.Context, credit *domain.Credit) er
 	return nil
 }
 
-func (r *CreditRepository) Delete(ctx context.Context, id string) error {
+func (r *CreditRepository) Delete(ctx context.Context, id int) error {
 	err := r.crud.Delete(ctx, id)
     if err != nil {
         return err
     }
 
     // Cache
-    r.Redis().HDel(ctx, creditsHash, id)
-    r.Redis().ZRem(ctx, creditsList, id)
+    r.Redis().HDel(ctx, creditsHash, strconv.Itoa(id))
+    r.Redis().ZRem(ctx, creditsList, strconv.Itoa(id))
 
     return nil
 }
 
-func (r *CreditRepository) ListByClient(ctx context.Context, clientID string, pagination baseRepo.PaginationParams) (baseRepo.PaginatedResult[domain.Credit], error) {
+func (r *CreditRepository) ListByClient(ctx context.Context, clientID int, pagination baseRepo.PaginationParams) (baseRepo.PaginatedResult[domain.Credit], error) {
 	whereClause := "client_id = $1"
 	return r.crud.List(ctx, pagination, scanCredit, whereClause, "created_at DESC", clientID)
 }

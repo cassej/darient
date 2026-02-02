@@ -3,6 +3,8 @@ package credits
 import "api/internal/contracts"
 
 var Create = contracts.Contract{
+    Method: "POST",
+	URI:    "/credits",
 	Required: map[string]contracts.FieldSpec{
 		"client_id": {
 			Type: "int",

@@ -3,6 +3,8 @@ package banks
 import "api/internal/contracts"
 
 var List = contracts.Contract{
+    Method: "GET",
+	URI:    "/banks",
     Optional: map[string]contracts.FieldSpec{
         "name": {
             Type: "string",

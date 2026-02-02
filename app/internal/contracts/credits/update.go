@@ -3,6 +3,14 @@ package credits
 import "api/internal/contracts"
 
 var Update = contracts.Contract{
+    Method: "GET",
+	URI:    "/credits/{id}",
+	Required: map[string]contracts.FieldSpec{
+        "id": {
+            Type: "int",
+            Min:  1,
+        },
+    },
 	Optional: map[string]contracts.FieldSpec{
 		"min_payment": {
 			Type:   "number",

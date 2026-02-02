@@ -3,6 +3,8 @@ package clients
 import "api/internal/contracts"
 
 var Create = contracts.Contract{
+	Method: "POST",
+	URI:    "/clients",
 	Required: map[string]contracts.FieldSpec{
 		"full_name": {
 			Type: "string",

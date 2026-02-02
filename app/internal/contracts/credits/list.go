@@ -11,7 +11,7 @@ var List = contracts.Contract{
         },
         "type": {
             Type:    "enum",
-            Options: []string{" PRIVATE", "GOVERNMENT"},
+            Options: []string{"PRIVATE", "GOVERNMENT"},
         },
     },
 }

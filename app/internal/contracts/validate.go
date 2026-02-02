@@ -28,6 +28,8 @@ var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]
 var uuidRegex = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
 
 type Contract struct {
+	Method   string
+	URI      string
 	Required map[string]FieldSpec
 	Optional map[string]FieldSpec
 }
@@ -39,6 +41,20 @@ type FieldSpec struct {
 	MinVal  float64
 	MaxVal  float64
 	Options []string
+}
+
+func (c Contract) URIParams() []string {
+	re := regexp.MustCompile(`\{([^}]+)\}`)
+	matches := re.FindAllStringSubmatch(c.URI, -1)
+
+	params := make([]string, 0, len(matches))
+	for _, match := range matches {
+		if len(match) > 1 {
+			params = append(params, match[1])
+		}
+	}
+
+	return params
 }
 
 func Validate(input map[string]any, c Contract) (map[string]any, error) {
@@ -232,31 +248,13 @@ func ValidateField(field string, value any, spec FieldSpec) error {
 
 func Normalize(value any, spec FieldSpec) any {
 	switch spec.Type {
-        case "string":
+        case "string","enum":
 		    return strings.TrimSpace(value.(string))
 
-        case "email":
+        case "email", "uuid", "date":
 		    return strings.TrimSpace(strings.ToLower(value.(string)))
 
-        case "uuid":
-            return strings.TrimSpace(strings.ToLower(value.(string)))
-
-        case "date":
-		    return strings.TrimSpace(value.(string))
-
-        case "int":
-            switch v := value.(type) {
-                case float64:
-                    return int(v)
-
-                case int:
-                    return v
-
-                default:
-                    return value
-            }
-
-        case "number":
+        case "int", "number":
             switch v := value.(type) {
                 case float64:
                     return v
@@ -267,9 +265,6 @@ func Normalize(value any, spec FieldSpec) any {
                 default:
                     return value
             }
-
-        case "enum":
-		    return strings.TrimSpace(strings.ToUpper(value.(string)))
 
         default:
             return value

@@ -1,55 +1,22 @@
 package credits
 
 import (
-	"encoding/json"
-	"net/http"
-	"time"
-
 	"api/internal/handlers"
-	"api/internal/contracts"
 	"api/internal/contracts/credits"
-	"api/internal/domain"
-	"api/internal/middleware"
-	"api/internal/repository"
+	"api/internal/services"
 )
 
 func init() {
-	handlers.Register("POST", "/credits", CreateCredit)
+    handlers.Register(credits.Create, create)
 }
 
-func CreateCredit(w http.ResponseWriter, r *http.Request) (interface{}, error) {
-	var input map[string]any
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		return nil, handlers.NewHTTPError(http.StatusBadRequest, "invalid json format")
-	}
-
-	validated, err := contracts.Validate(input, credits.Create)
-	if err != nil {
-		return nil, err
-	}
-
-	credit := &domain.Credit{
-		ClientID:   validated["client_id"].(int),
-		BankID:     validated["bank_id"].(int),
-		MinPayment: validated["min_payment"].(float64),
-		MaxPayment: validated["max_payment"].(float64),
-		TermMonths: validated["term_months"].(int),
-		CreditType: validated["credit_type"].(string),
-		Status:     "PENDING",
-		CreatedAt: time.Now().UTC(),
-	}
-
-	pool := middleware.GetDB(r.Context())
-	if pool == nil {
-		return nil, handlers.NewHTTPError(http.StatusInternalServerError, "database unavailable")
-	}
-
-	repo := repository.NewCreditRepository(pool)
-
-	if err := repo.Create(r.Context(), credit); err != nil {
-		return nil, handlers.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-
-	w.WriteHeader(http.StatusCreated)
-	return credit, nil
+func create(ctx context.Context, data map[string]any) (interface{}, error) {
+    return service.CreditService.Create(ctx,
+        data["client_id"].(string),
+        data["bank_id"].(string),
+        data["min_payment"].(float64),
+        data["max_payment"].(float64),
+        data["term_months"].(int),
+        data["credit_type"].(string),
+    )
 }

@@ -1,36 +1,23 @@
 package banks
 
 import (
-	"net/http"
-	"strconv"
-
 	"api/internal/handlers"
-	"api/internal/middleware"
-	"api/internal/repository"
-	baseRepo "api/pkg/repository"
+	"api/internal/contracts/banks"
+	"api/internal/services"
 )
 
 func init() {
-	handlers.Register("GET", "/banks", ListBanks)
+    handlers.Register(banks.List, list)
 }
 
-func ListBanks(w http.ResponseWriter, r *http.Request) (interface{}, error) {
-	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
-	pageSize, _ := strconv.Atoi(r.URL.Query().Get("page_size"))
+func list(ctx context.Context, data map[string]any) (interface{}, error) {
+    page, pageSize := 1, 20
 
-	pagination := baseRepo.NewPaginationParams(page, pageSize)
-
-	pool := middleware.GetDB(r.Context())
-	if pool == nil {
-		return nil, handlers.NewHTTPError(http.StatusInternalServerError, "database unavailable")
-	}
-
-	repo := repository.NewBankRepository(pool)
-
-	result, err := repo.List(r.Context(), pagination)
-	if err != nil {
-		return nil, handlers.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-
-	return result, nil
+    if v, ok := data["page"].(int); ok && v > 0 {
+        page = v
+    }
+    if v, ok := data["page_size"].(int); ok && v > 0 {
+        pageSize = v
+    }
+    return services.BankService.List(ctx, page, pageSize)
 }

@@ -1,50 +1,16 @@
 package banks
 
 import (
-	"net/http"
-
-	"github.com/go-chi/chi/v5"
-
-	"api/internal/contracts"
-	"api/internal/domain"
 	"api/internal/handlers"
-	"api/internal/middleware"
-	"api/internal/repository"
+	"api/internal/contracts/banks"
+	"api/internal/services"
 )
 
 func init() {
-	handlers.Register("GET", "/banks/{id}", GetBank)
+    handlers.Register(banks.Get, get)
 }
 
-func GetBank(w http.ResponseWriter, r *http.Request) (interface{}, error) {
-	id := chi.URLParam(r, "id")
-	if id == "" {
-		return nil, domain.ErrInvalidInput
-	}
-
-    err := contracts.ValidateField("id", id, contracts.FieldSpec{
-        Type: "int",
-        Min:  1,
-    })
-
-    if err != nil {
-        return nil, handlers.NewHTTPError(http.StatusBadRequest, err.Error())
-    }
-
-	pool := middleware.GetDB(r.Context())
-	if pool == nil {
-		return nil, handlers.NewHTTPError(http.StatusInternalServerError, "database unavailable")
-	}
-
-	repo := repository.NewBankRepository(pool)
-
-	bank, err := repo.GetByID(r.Context(), id)
-	if err != nil {
-		if err == domain.ErrNotFound {
-			return nil, handlers.NewHTTPError(http.StatusNotFound, "bank not found")
-		}
-		return nil, handlers.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-
-	return bank, nil
+func get(ctx context.Context, data map[string]any) (interface{}, error) {
+    return services.BankService.Get(ctx, data["id"].(int))
+    )
 }

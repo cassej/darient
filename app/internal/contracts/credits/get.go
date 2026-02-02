@@ -1,4 +1,4 @@
-package clients
+package credits
 
 import "api/internal/contracts"
 

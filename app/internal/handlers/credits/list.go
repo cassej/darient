@@ -1,36 +1,25 @@
 package credits
 
 import (
-	"net/http"
-	"strconv"
-
 	"api/internal/handlers"
-	"api/internal/middleware"
-	"api/internal/repository"
-	baseRepo "api/pkg/repository"
+	"api/internal/contracts/credits"
+	"api/internal/services"
 )
 
 func init() {
-	handlers.Register("GET", "/credits", ListCredits)
+    handlers.Register(credits.List, list)
 }
 
-func ListCredits(w http.ResponseWriter, r *http.Request) (interface{}, error) {
-	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
-	pageSize, _ := strconv.Atoi(r.URL.Query().Get("page_size"))
+func list(ctx context.Context, data map[string]any) (interface{}, error) {
+	page, _ := data["page"].(int)
+	pageSize, _ := data["page_size"].(int)
 
-	pagination := baseRepo.NewPaginationParams(page, pageSize)
-
-	pool := middleware.GetDB(r.Context())
-	if pool == nil {
-		return nil, handlers.NewHTTPError(http.StatusInternalServerError, "database unavailable")
+	if page == 0 {
+		page = 1
+	}
+	if pageSize == 0 {
+		pageSize = 20
 	}
 
-	repo := repository.NewCreditRepository(pool)
-
-	result, err := repo.List(r.Context(), pagination)
-	if err != nil {
-		return nil, handlers.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-
-	return result, nil
+	return service.CreditService.List(ctx, page, pageSize)
 }

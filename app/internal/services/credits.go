@@ -78,7 +78,25 @@ func (s creditService) Update(ctx context.Context, id int, minPayment, maxPaymen
 		credit.Status = *status
 	}
 
-	return credit, repo.Update(ctx, credit)
+    if err := repo.Update(ctx, credit); err != nil {
+		return nil, err
+	}
+
+    if credit.Status == "APPROVED" {
+        if pub := middleware.GetPublisher(ctx); pub != nil {
+            pub.Publish(ctx, events.Event{
+                Type:      "CreditApproved",
+                Timestamp: time.Now(),
+                Payload: events.CreditApprovedEvent{
+                    CreditID:   credit.ID,
+                    ClientID:   credit.ClientID,
+                    ApprovedAt: time.Now(),
+                },
+            })
+        }
+    }
+
+	return credit, nil
 }
 
 func (s creditService) Delete(ctx context.Context, id int) error {

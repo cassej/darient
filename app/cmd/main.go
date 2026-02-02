@@ -12,12 +12,13 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	"api/internal/config"
+	"api/internal/events"
 	"api/internal/handlers"
 	_ "api/internal/handlers/banks"
 	_ "api/internal/handlers/clients"
 	_ "api/internal/handlers/credits"
 	mw "api/internal/middleware"
-    "api/pkg/database"
+	"api/pkg/database"
 )
 
 func main() {
@@ -52,9 +53,12 @@ func main() {
 		log.Error("failed to connect to redis", "err", err)
 		os.Exit(1)
 	}
+
 	defer database.CloseRedis()
 
 	go database.StartRedisHealthCheck(ctx, cfg.RedisHealthCheckInterval)
+
+	publisher := events.NewRedisPublisher(database.Redis())
 
 	db, err := database.Connect(ctx, cfg.GetDBDSN(), cfg.DBMaxConns, cfg.DBMinConns)
 
@@ -72,6 +76,7 @@ func main() {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(cfg.ReadHeaderTimeout))
 	r.Use(mw.DBMiddleware(db))
+	r.Use(mw.PublisherMiddleware(publisher))
 	r.Use(mw.LoggerMiddleware(log))
 
 	r.Group(func(r chi.Router) {

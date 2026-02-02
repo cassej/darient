@@ -7,6 +7,7 @@ import (
 	"api/internal/domain"
 	"api/internal/middleware"
 	"api/internal/repository"
+	"api/internal/events"
 	baseRepo "api/pkg/repository"
 )
 
@@ -14,7 +15,7 @@ var CreditService = creditService{}
 
 type creditService struct{}
 
-func (creditService) Create(ctx context.Context, clientID, bankID int, minPayment, maxPayment float64, termMonths int, creditType string) (*domain.Credit, error) {
+func (s creditService) Create(ctx context.Context, clientID, bankID int, minPayment, maxPayment float64, termMonths int, creditType string) (*domain.Credit, error) {
 	credit := &domain.Credit{
 		ClientID:   clientID,
 		BankID:     bankID,
@@ -27,15 +28,33 @@ func (creditService) Create(ctx context.Context, clientID, bankID int, minPaymen
 	}
 
 	repo := repository.NewCreditRepository(middleware.GetDB(ctx))
-	return credit, repo.Create(ctx, credit)
+
+	if err := repo.Create(ctx, credit); err != nil {
+		return nil, err
+	}
+
+	if pub := middleware.GetPublisher(ctx); pub != nil {
+		pub.Publish(ctx, events.Event{
+			Type:      "CreditCreated",
+			Timestamp: time.Now(),
+			Payload: events.CreditCreatedEvent{
+				CreditID:   credit.ID,
+				ClientID:   credit.ClientID,
+				BankID:     credit.BankID,
+				CreditType: credit.CreditType,
+			},
+		})
+	}
+
+	return credit, nil
 }
 
-func (creditService) Get(ctx context.Context, id int) (*domain.Credit, error) {
+func (s creditService) Get(ctx context.Context, id int) (*domain.Credit, error) {
 	repo := repository.NewCreditRepository(middleware.GetDB(ctx))
 	return repo.GetByID(ctx, id)
 }
 
-func (creditService) Update(ctx context.Context, id int, minPayment, maxPayment *float64, termMonths *int, creditType, status *string) (*domain.Credit, error) {
+func (s creditService) Update(ctx context.Context, id int, minPayment, maxPayment *float64, termMonths *int, creditType, status *string) (*domain.Credit, error) {
 	repo := repository.NewCreditRepository(middleware.GetDB(ctx))
 
 	credit, err := repo.GetByID(ctx, id)
@@ -62,12 +81,12 @@ func (creditService) Update(ctx context.Context, id int, minPayment, maxPayment 
 	return credit, repo.Update(ctx, credit)
 }
 
-func (creditService) Delete(ctx context.Context, id int) error {
+func (s creditService) Delete(ctx context.Context, id int) error {
 	repo := repository.NewCreditRepository(middleware.GetDB(ctx))
 	return repo.Delete(ctx, id)
 }
 
-func (creditService) List(ctx context.Context, page, pageSize int) (interface{}, error) {
+func (s creditService) List(ctx context.Context, page, pageSize int) (interface{}, error) {
 	repo := repository.NewCreditRepository(middleware.GetDB(ctx))
 	pagination := baseRepo.NewPaginationParams(page, pageSize)
 	return repo.List(ctx, pagination)
